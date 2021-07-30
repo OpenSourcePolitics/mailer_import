@@ -8,12 +8,13 @@ import os
 import json
 
 class Sendinblue(Mailer):
-    def get_mails(self):
+    def get_mails(self, senders):
         api_instance = sib.TransactionalEmailsApi(self.api_client)
         data = api_instance.get_email_event_report(
             start_date = date.today() - timedelta(days=7),
-            end_date = date.today()
-        )
+            end_date = date.today(),
+        ).to_dict()['events']
+        data = list(filter(lambda x: x['_from'] in senders, data))
         parsed_data = self.parse_data(data)
         with open('sib_data', 'wb') as sib_data:
             pickle.dump(data, sib_data)
@@ -22,7 +23,7 @@ class Sendinblue(Mailer):
 
     def parse_data(self, data):
         parsed_data = []
-        for event in data.to_dict()['events']:
+        for event in data:
             parsed_event = {
                 'date': str(event['_date']),
                 'subject': event['subject'],
