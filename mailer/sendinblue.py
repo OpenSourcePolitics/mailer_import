@@ -15,13 +15,13 @@ class Sendinblue(Mailer):
             end_date = date.today(),
         ).to_dict()['events']
         data = list(filter(lambda x: x['_from'] in senders, data))
-        parsed_data = self.parse_data(data)
+        parsed_data = self.parse_mails(data)
         with open('sib_data', 'wb') as sib_data:
             pickle.dump(data, sib_data)
         with open('sib_data.json', 'w') as sib_data_json:
             json.dump(parsed_data, sib_data_json)
 
-    def parse_data(self, data):
+    def parse_mails(self, data):
         parsed_data = []
         for event in data:
             parsed_event = {

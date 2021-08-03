@@ -3,9 +3,9 @@ from abc import ABC, abstractmethod
 
 class Mailer:
     @abstractmethod
-    def get_user_informations(self, address_list):
+    def get_mails(self, senders):
         pass
 
     @abstractmethod
-    def parse_message(self, message_data):
+    def parse_mails(self, mails):
         pass
