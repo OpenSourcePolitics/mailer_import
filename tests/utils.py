@@ -45,6 +45,12 @@ DUMMY_MAILJET_ANSWER = {
     ]
 }
 
+
+DUMMY_SENDINBLUE_ANSWER = {
+    None
+}
+
+
 @pytest.fixture(scope="module", autouse=True)
 def emails_file_setup():
     with open(FILE_NAME, 'w') as f:
@@ -56,8 +62,9 @@ def emails_file_setup():
 
 
 
-class DummyMailjetWorking:
-    def __init__(self):
+class DummyMailerWorking:
+    def __init__(self, mailer):
+        if mailer == 'Mailjet'
         self.ok = True
         self.status_
     

@@ -1,18 +1,20 @@
-import pandas as pd
-import sib_api_v3_sdk as sib
 from datetime import datetime, date, timedelta
-import pickle
-import sqlalchemy
-from abstract_mailer import Mailer
-import os
 import json
+import os
+import pandas as pd
+import pickle
+import sib_api_v3_sdk as sib
+import sqlalchemy
+
+from abstract_mailer import Mailer
+
 
 class Sendinblue(Mailer):
     def get_mails(self, senders):
         api_instance = sib.TransactionalEmailsApi(self.api_client)
         data = api_instance.get_email_event_report(
-            start_date = date.today() - timedelta(days=7),
-            end_date = date.today(),
+            start_date=date.today() - timedelta(days=7),
+            end_date=date.today(),
         ).to_dict()['events']
         data = list(filter(lambda x: x['_from'] in senders, data))
         parsed_data = self.parse_mails(data)

@@ -1,7 +1,8 @@
 from abstract_mailer import Mailer
 from mailjet_rest import Client
+from datetime import datetime
 import json
-import pickle
+import pandas as pd
 import os
 
 MAX_LEN_API_RESPONSE = 1000
@@ -19,45 +20,64 @@ class Mailjet(Mailer):
 
         parsed_data = self.parse_mails(raw_data)
 
-        with open('parsed_message_data.json', 'w') as message_file:
-            json.dump(parsed_data, message_file)
+        return parsed_data
 
     def get_id_of_senders(self, senders_mail):
-        senders_ids = []
         senders_data = self.get_mailjet_data('sender')
-        wanted_senders = list(filter(lambda x: x['Email'] in senders_mail, senders_data))
+        wanted_senders = list(
+            filter(lambda x: x['Email'] in senders_mail, senders_data)
+        )
         return list(map(lambda x: x['ID'], wanted_senders))
 
     def parse_mails(self, raw_data):
-        parsed_data = []
-        for message in raw_data:
-            parsed_message = {
-                'date': str(message['ArrivedAt']),
-                'subject': message['Subject'],
-                'sender': self.get_element_by_id('sender', message['SenderID'], 'ID'),
-                'receiver': self.get_element_by_id('contact',message['ContactID'], 'ID'),
-                'mailer': 'Mailjet',
-                'state': message['Status'],
-            }
-            parsed_data.append(parsed_message)
+        raw_data_df = pd.DataFrame(raw_data).rename(
+            columns={'ID': 'ID_Message', 'Status': 'MessageStatus'}
+        )
+        sender_df = pd.DataFrame(self.get_mailjet_data('sender')).rename(
+            columns={'ID': 'SenderID'}
+        )
+        contact_df = pd.DataFrame(self.get_mailjet_data('contact')).rename(
+            columns={'ID': 'ContactID'}
+        )
+
+        merged_with_senders = pd.merge(
+            raw_data_df,
+            sender_df,
+            on="SenderID"
+        ).rename(columns={'Email': 'SenderEmail'})
+        merged_with_contacts = pd.merge(
+            merged_with_senders,
+            contact_df,
+            on="ContactID"
+        ).rename(columns={'Email': 'ContactEmail'})
+
+        parsed_data = merged_with_contacts.loc[
+            :,
+            ['ArrivedAt', 'Subject', 'SenderEmail', 'ContactEmail', 'MessageStatus']
+        ]
+        parsed_data['ArrivedAt'].transform(lambda x: datetime.strptime(x, "%Y-%m-%dT%H:%M:%SZ"))
         return parsed_data
 
     def get_mailjet_data(self, endpoint, additional_filters={}):
         file_path = f"{endpoint}_data.json"
+        offset, limit = 0, 1000
+        filters = {'Limit': limit, 'Offset': offset}
+        data = []
 
         if not getattr(self.api_client, endpoint):
             raise NotImplementedError('Pass a correct for the Mailjet API')
 
-        if os.path.exists(file_path):
+        elif additional_filters.get('FromTS'):
+            with open(file_path, 'r') as data_file:
+                data = json.load(data_file)
+            filters = additional_filters
+
+        elif os.path.exists(file_path):
             with open(file_path, 'r') as data_file:
                 return json.load(data_file)
 
-        offset = 0
-        limit = 1000
-        data = []
         while True:
             print(offset)
-            filters = {'Limit':limit, 'Offset':offset}
             filters.update(additional_filters)
             request_data = getattr(self.api_client, endpoint).get(
                 filters=filters
@@ -66,13 +86,20 @@ class Mailjet(Mailer):
             if request_data['Count'] != limit:
                 break
             offset += limit
+        data['Current date'] = round(datetime.now().timestamp())
         with open(file_path, 'w') as data_file:
-            json.dump(data,data_file)
+            json.dump(data, data_file)
         return data
 
-    def get_element_by_id(self, endpoint, id, attr="ID"):
-        data = self.get_mailjet_data(endpoint)
-        return list(filter(lambda x: x[attr] == id, data))[0]['Email']
+    def update_mailjet_data(self, endpoint, additional_filters={}):
+        file_path = f"{endpoint}_data.json"
+
+        with open(file_path, 'r') as data_file:
+            data = json.load(data_file)
+
+        last_update = data["Current Date"]
+        
+        return self.get_mailjet_data({'FromTS': last_update})
 
     def __init__(self):
         api_key = os.environ['MJ_APIKEY_PUBLIC']

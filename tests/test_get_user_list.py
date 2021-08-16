@@ -1,5 +1,5 @@
 import pytest
-from mailer.main import get_user_list
+from mailer.main import get_mails
 from .utils import emails_file_setup, FILE_NAME
 
 def test_get_user_list_file_not_found():
